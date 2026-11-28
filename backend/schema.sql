@@ -1,11 +1,11 @@
 -- ============================================================================
--- JOINEAZY — POSTGRESQL RELATIONAL DATABASE SCHEMA & INITIAL SEED DATA
+-- JOINEAZY ROUND 2 — POSTGRESQL RELATIONAL SCHEMA (COURSES, GROUPS & RBAC)
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('STUDENT', 'ADMIN');
+    CREATE TYPE user_role AS ENUM ('STUDENT', 'PROFESSOR');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -17,12 +17,12 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE target_scope AS ENUM ('ALL', 'SPECIFIC');
+    CREATE TYPE submission_mode AS ENUM ('INDIVIDUAL', 'GROUP');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 1. Users Table (Students & Professors)
+-- 1. Users Collection / Table (Students & Professors)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     code_id VARCHAR(32) UNIQUE NOT NULL,
@@ -34,16 +34,35 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Project Groups Table
+-- 2. Courses Table (Associates Professors, Enrolled Students, and Assignments)
+CREATE TABLE IF NOT EXISTS courses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(24) UNIQUE NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    semester VARCHAR(64) NOT NULL,
+    description TEXT,
+    professor_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. Course Enrollments (Many-to-Many: Students <-> Courses)
+CREATE TABLE IF NOT EXISTS course_enrollments (
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (course_id, student_id)
+);
+
+-- 4. Project Groups Table (Tracks Group Leader reference)
 CREATE TABLE IF NOT EXISTS groups (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(120) NOT NULL,
     invite_code VARCHAR(16) UNIQUE NOT NULL,
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    leader_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3. Group Memberships (1 Student -> 1 Active Group)
+-- 5. Group Memberships (Enforces 1 Active Group per Student)
 CREATE TABLE IF NOT EXISTS group_members (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -52,48 +71,39 @@ CREATE TABLE IF NOT EXISTS group_members (
     joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4. Assignments Table
+-- 6. Course Assignments (Supports INDIVIDUAL & GROUP submission modes)
 CREATE TABLE IF NOT EXISTS assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
-    due_date TIMESTAMPTZ NOT NULL,
+    deadline TIMESTAMPTZ NOT NULL,
     onedrive_url TEXT NOT NULL,
-    target_type target_scope NOT NULL DEFAULT 'ALL',
+    submission_type submission_mode NOT NULL DEFAULT 'GROUP',
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. Specific Group Targeting Join Table
-CREATE TABLE IF NOT EXISTS assignment_targets (
-    assignment_id UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    PRIMARY KEY (assignment_id, group_id)
-);
-
--- 6. Two-Step Verified Group Submissions
+-- 7. Verified Submissions & Leader Acknowledgments
 CREATE TABLE IF NOT EXISTS submissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     assignment_id UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    confirmed_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    submission_type submission_mode NOT NULL,
+    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(24) NOT NULL DEFAULT 'ACKNOWLEDGED',
+    acknowledged_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     note TEXT,
-    confirmed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (assignment_id, group_id)
+    acknowledged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (assignment_id, group_id),
+    UNIQUE (assignment_id, student_id),
+    CHECK (
+      (submission_type = 'GROUP' AND group_id IS NOT NULL AND student_id IS NULL) OR
+      (submission_type = 'INDIVIDUAL' AND student_id IS NOT NULL AND group_id IS NULL)
+    )
 );
 
+CREATE INDEX IF NOT EXISTS idx_assignments_course_id ON assignments(course_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_assignment_id ON submissions(assignment_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_group_id ON submissions(group_id);
-
--- ============================================================================
--- SEED DATA (Default password for seeded accounts: "password123")
--- ============================================================================
-INSERT INTO users (id, code_id, name, email, password_hash, role, department)
-VALUES
-  ('11111111-1111-1111-1111-111111111101', 'PROF-101', 'Dr. Ananya Sharma', 'ananya.sharma@joineazy.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8D2vW9gB6Y4qR9O1b8dJ0iP1yR4K2u', 'ADMIN', 'Computer Science'),
-  ('22222222-2222-2222-2222-222222222201', 'STU-2026-01', 'Aarav Patel', 'aarav@joineazy.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8D2vW9gB6Y4qR9O1b8dJ0iP1yR4K2u', 'STUDENT', 'B.Tech CSE'),
-  ('22222222-2222-2222-2222-222222222202', 'STU-2026-02', 'Sneha Nair', 'sneha@joineazy.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8D2vW9gB6Y4qR9O1b8dJ0iP1yR4K2u', 'STUDENT', 'B.Tech CSE'),
-  ('22222222-2222-2222-2222-222222222203', 'STU-2026-03', 'Rohan Kulkarni', 'rohan@joineazy.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8D2vW9gB6Y4qR9O1b8dJ0iP1yR4K2u', 'STUDENT', 'B.Tech IT'),
-  ('22222222-2222-2222-2222-222222222204', 'STU-2026-04', 'Meera Krishnan', 'meera@joineazy.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8D2vW9gB6Y4qR9O1b8dJ0iP1yR4K2u', 'STUDENT', 'B.Tech IT')
-ON CONFLICT (email) DO NOTHING;
