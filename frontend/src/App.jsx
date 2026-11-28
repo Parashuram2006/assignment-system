@@ -1,11 +1,25 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
+/**
+ * ============================================================================
+ * JOINEAZY ROUND 2 — ENHANCED UI/UX ACADEMIC WORKSPACE
+ * ============================================================================
+ * Features:
+ *  - Split-screen JWT Authentication & Registration with live field validation
+ *  - Role-based redirection (Student Enrolled Courses vs. Professor Console)
+ *  - Course-centric dashboards with animated SVG progress rings & gradients
+ *  - Visual 3-step assignment submission stepper (OneDrive -> Upload -> Ack)
+ *  - Strict Group Leader-only acknowledgment reflected across all members
+ *  - Celebratory completion micro-animations & real-time faculty analytics
+ * ============================================================================
+ */
+
 const API_BASE_URL = 'http://localhost:5000/api';
-const DB_STORAGE_KEY = 'joineazy_round2_store_v2';
-const AUTH_STORAGE_KEY = 'joineazy_round2_auth_v2';
+const DB_STORAGE_KEY = 'joineazy_round2_store_v3';
+const AUTH_STORAGE_KEY = 'joineazy_round2_auth_v3';
 
 // ----------------------------------------------------------------------------
-// 1. MINIMAL INLINE SVG ICON SET
+// 1. CRISP INLINE SVG ICON LIBRARY
 // ----------------------------------------------------------------------------
 const Icon = ({ name, className = 'w-4 h-4' }) => {
   const paths = {
@@ -177,6 +191,30 @@ const Icon = ({ name, className = 'w-4 h-4' }) => {
         <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
       </>
     ),
+    eye: (
+      <>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    eyeOff: (
+      <>
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <polyline points="9 12 11 14 15 10" />
+      </>
+    ),
+    sparkles: (
+      <>
+        <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+      </>
+    ),
   };
 
   return (
@@ -196,7 +234,82 @@ const Icon = ({ name, className = 'w-4 h-4' }) => {
 };
 
 // ----------------------------------------------------------------------------
-// 2. RELATIONAL SEED DATA (Courses, Users, Groups, Individual/Group Tasks)
+// 2. REUSABLE VISUAL DESIGN COMPONENTS (Avatar, Circular Ring, Badges)
+// ----------------------------------------------------------------------------
+const AVATAR_GRADIENTS = [
+  'from-indigo-500 to-violet-600',
+  'from-emerald-500 to-teal-600',
+  'from-amber-500 to-orange-600',
+  'from-sky-500 to-blue-600',
+  'from-rose-500 to-pink-600',
+  'from-purple-500 to-fuchsia-600',
+];
+
+function AvatarBadge({ name = 'U', size = 'md' }) {
+  const initials = name
+    .replace(/^Dr\.\s+/i, '')
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const grad = AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+  const dims =
+    size === 'sm'
+      ? 'w-7 h-7 text-[11px]'
+      : size === 'lg'
+      ? 'w-11 h-11 text-sm'
+      : 'w-9 h-9 text-xs';
+
+  return (
+    <div
+      className={`${dims} rounded-full bg-gradient-to-br ${grad} text-white font-bold flex items-center justify-center shrink-0 shadow-sm ring-2 ring-white`}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function CircularProgress({ pct = 0, size = 54, strokeWidth = 5, color = '#4f46e5' }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const offset = circumference - (clamped / 100) * circumference;
+
+  return (
+    <div className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <svg className="-rotate-90 transform" width={size} height={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="transparent"
+          stroke="#e2e8f0"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="transparent"
+          stroke={clamped === 100 ? '#10b981' : color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+        />
+      </svg>
+      <span className="absolute text-[11px] font-extrabold text-slate-900 tabular-nums">
+        {clamped}%
+      </span>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 3. RELATIONAL SEED DATA
 // ----------------------------------------------------------------------------
 const SEED_DATABASE = {
   users: [
@@ -284,8 +397,8 @@ const SEED_DATABASE = {
     },
     {
       id: 'crs-405',
-      code: 'CS-405',
       title: 'Full-Stack Web Engineering & API Security',
+      code: 'CS-405',
       semester: 'Fall 2026 • Core',
       professorId: 'prof-101',
       accent: 'emerald',
@@ -449,7 +562,7 @@ const SEED_DATABASE = {
 };
 
 // ----------------------------------------------------------------------------
-// 3. HELPERS & JWT TOKEN BUILDER
+// 4. HELPERS & JWT TOKEN BUILDER
 // ----------------------------------------------------------------------------
 function createJwtToken(user) {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -487,8 +600,13 @@ function formatDateTime(iso) {
   });
 }
 
-function isOverdue(iso) {
-  return new Date(iso).getTime() < Date.now();
+function getDeadlineBadge(iso, acknowledged) {
+  if (acknowledged) return { label: 'Completed', tone: 'emerald' };
+  const diffMs = new Date(iso).getTime() - Date.now();
+  const days = Math.ceil(diffMs / 86400000);
+  if (diffMs < 0) return { label: 'Past Deadline', tone: 'rose' };
+  if (days <= 2) return { label: `Due in ${days}d • Urgent`, tone: 'amber' };
+  return { label: `Due in ${days} days`, tone: 'slate' };
 }
 
 async function syncWithBackend(path, options = {}, token = null) {
@@ -512,8 +630,32 @@ async function syncWithBackend(path, options = {}, token = null) {
   }
 }
 
+const COURSE_THEMES = {
+  indigo: {
+    banner: 'from-indigo-600 via-indigo-600 to-violet-700',
+    pill: 'bg-white/20 text-white border-white/25',
+    bar: 'bg-indigo-600',
+    ring: '#4f46e5',
+    softBg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+  },
+  emerald: {
+    banner: 'from-emerald-600 via-teal-600 to-cyan-700',
+    pill: 'bg-white/20 text-white border-white/25',
+    bar: 'bg-emerald-600',
+    ring: '#059669',
+    softBg: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+  },
+  amber: {
+    banner: 'from-amber-500 via-orange-500 to-rose-600',
+    pill: 'bg-white/20 text-white border-white/25',
+    bar: 'bg-amber-500',
+    ring: '#d97706',
+    softBg: 'bg-amber-50 text-amber-800 border-amber-200/80',
+  },
+};
+
 // ----------------------------------------------------------------------------
-// 4. MAIN APPLICATION SHELL
+// 5. MAIN APPLICATION SHELL
 // ----------------------------------------------------------------------------
 export default function App() {
   const [db, setDb] = useState(() => {
@@ -578,8 +720,8 @@ export default function App() {
     setSelectedCourseId(null);
     setActiveNav('courses');
     showToast(
-      `Authenticated via JWT • Redirected to ${
-        user.role === 'PROFESSOR' ? 'Professor Dashboard' : 'Student Courses'
+      `JWT Verified • Redirected to ${
+        user.role === 'PROFESSOR' ? 'Professor Console' : 'Student Courses'
       }`
     );
   };
@@ -628,7 +770,7 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 antialiased flex flex-col">
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
         <ToastNotification toast={toast} onDismiss={() => setToast(null)} />
         <AuthScreen
           users={db.users}
@@ -659,7 +801,7 @@ export default function App() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 antialiased flex">
+    <div className="min-h-screen bg-slate-50/90 text-slate-900 flex">
       <ToastNotification toast={toast} onDismiss={() => setToast(null)} />
 
       {mobileMenuOpen && (
@@ -669,37 +811,39 @@ export default function App() {
         />
       )}
 
-      {/* Left Sidebar */}
+      {/* Left Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-68 bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
+        {/* Brand Header */}
         <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm shadow-indigo-500/25">
               <Icon name="brand" className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-base tracking-tight text-slate-900 block leading-none">
+              <span className="font-display font-extrabold text-base text-slate-900 block leading-none">
                 Joineazy
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">
-                {isProfessor ? 'Professor Console' : 'Student Portal'}
+              <span className="text-[11px] text-slate-500 font-medium mt-0.5 block">
+                {isProfessor ? 'Faculty Console' : 'Student Workspace'}
               </span>
             </div>
           </div>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600"
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
             <Icon name="x" className="w-4 h-4" />
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-5 space-y-1">
-          <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Navigation
+        {/* Navigation Links */}
+        <nav className="flex-1 px-3.5 py-5 space-y-1">
+          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Menu
           </div>
           {navItems.map((item) => {
             const active = activeNav === item.id;
@@ -711,15 +855,15 @@ export default function App() {
                   if (item.id !== 'assignments') setSelectedCourseId(null);
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold shadow-sm shadow-indigo-500/20'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 }`}
               >
                 <Icon
                   name={item.icon}
-                  className={`w-4 h-4 ${active ? 'text-indigo-600' : 'text-slate-400'}`}
+                  className={`w-4 h-4 ${active ? 'text-white' : 'text-slate-400'}`}
                 />
                 <span>{item.label}</span>
               </button>
@@ -727,39 +871,42 @@ export default function App() {
           })}
         </nav>
 
-        {/* Profile & Controls */}
-        <div className="p-3 border-t border-slate-100 space-y-2">
-          <div className="px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-900 truncate">
+        {/* User Profile Card & Footer */}
+        <div className="p-3.5 border-t border-slate-100 space-y-2.5">
+          <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/80 flex items-center gap-3">
+            <AvatarBadge name={currentUser.name} size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-900 truncate">
                 {currentUser.name}
-              </span>
-              <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  isProfessor
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-indigo-100 text-indigo-700'
-                }`}
-              >
-                {isProfessor ? 'Professor' : 'Student'}
-              </span>
-            </div>
-            <div className="text-[11px] font-mono text-slate-500 mt-0.5">
-              {currentUser.codeId}
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-mono text-slate-500">
+                  {currentUser.codeId}
+                </span>
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase ${
+                    isProfessor
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-indigo-100 text-indigo-700'
+                  }`}
+                >
+                  {isProfessor ? 'Prof' : 'Student'}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleResetStore}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100/70 hover:bg-slate-200/70 transition active:scale-[0.98]"
             >
               <Icon name="refresh" className="w-3.5 h-3.5" />
               <span>Reset</span>
             </button>
             <button
               onClick={handleLogout}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition"
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50/80 hover:bg-rose-100 transition active:scale-[0.98]"
             >
               <Icon name="logout" className="w-3.5 h-3.5" />
               <span>Sign Out</span>
@@ -768,44 +915,45 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
+        <header className="h-16 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 rounded-lg text-slate-600 hover:bg-slate-100"
+              className="lg:hidden p-2 -ml-2 rounded-xl text-slate-600 hover:bg-slate-100"
+              aria-label="Open Menu"
             >
               <Icon name="menu" className="w-5 h-5" />
             </button>
             <div className="truncate">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+              <h1 className="font-display text-base sm:text-lg font-extrabold text-slate-900 truncate">
                 {activeCourse
-                  ? `${activeCourse.code}: ${activeCourse.title}`
+                  ? `${activeCourse.code} — ${activeCourse.title}`
                   : activeNav === 'courses'
                   ? isProfessor
-                    ? 'Courses Taught & Analytics'
+                    ? 'Courses Taught & Overview'
                     : 'My Enrolled Courses'
                   : activeNav === 'tracking'
                   ? 'Submission Tracking'
                   : activeNav === 'group'
-                  ? 'Group & Leadership'
+                  ? 'Project Group & Leadership'
                   : activeNav === 'analytics'
-                  ? 'Course Analytics'
-                  : 'Assignments'}
+                  ? 'Course Completion Analytics'
+                  : 'All Assignments'}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              JWT Verified
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              JWT Session Active
             </span>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto animate-view-enter">
+        <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto">
           {isProfessor ? (
             <ProfessorWorkspace
               activeNav={activeNav}
@@ -840,20 +988,26 @@ export default function App() {
 }
 
 // ----------------------------------------------------------------------------
-// 5. TOAST NOTIFICATION
+// 6. TOAST NOTIFICATION
 // ----------------------------------------------------------------------------
 function ToastNotification({ toast, onDismiss }) {
   if (!toast) return null;
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm max-w-sm animate-view-enter">
-      <Icon
-        name={toast.type === 'error' ? 'alert' : 'checkCircle'}
-        className={`w-4 h-4 shrink-0 ${
-          toast.type === 'error' ? 'text-rose-400' : 'text-emerald-400'
+    <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-4 py-3.5 rounded-2xl shadow-2xl border border-slate-700/70 text-sm max-w-sm animate-view-enter">
+      <div
+        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+          toast.type === 'error'
+            ? 'bg-rose-500/20 text-rose-400'
+            : 'bg-emerald-500/20 text-emerald-400'
         }`}
-      />
-      <span className="flex-1 text-xs font-medium">{toast.message}</span>
-      <button onClick={onDismiss} className="text-slate-400 hover:text-white">
+      >
+        <Icon
+          name={toast.type === 'error' ? 'alert' : 'checkCircle'}
+          className="w-4 h-4"
+        />
+      </div>
+      <span className="flex-1 text-xs font-medium leading-relaxed">{toast.message}</span>
+      <button onClick={onDismiss} className="text-slate-400 hover:text-white p-1">
         <Icon name="x" className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -861,12 +1015,13 @@ function ToastNotification({ toast, onDismiss }) {
 }
 
 // ----------------------------------------------------------------------------
-// 6. AUTHENTICATION SCREEN (Validation, Loader Animation & Role Redirect)
+// 7. SPLIT-SCREEN AUTHENTICATION EXPERIENCE
 // ----------------------------------------------------------------------------
 function AuthScreen({ users, onLogin, onRegister }) {
   const [tab, setTab] = useState('LOGIN');
   const [email, setEmail] = useState('aarav@joineazy.edu');
   const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState('STUDENT');
   const [department, setDepartment] = useState('B.Tech CSE');
@@ -909,7 +1064,7 @@ function AuthScreen({ users, onLogin, onRegister }) {
             u.password === password
         );
         if (!user) {
-          setAuthError('Invalid email or password. Try a quick-access account below.');
+          setAuthError('Invalid email or password. Use a quick-access role below.');
           return;
         }
         await onLogin(user);
@@ -923,223 +1078,301 @@ function AuthScreen({ users, onLogin, onRegister }) {
   const quickAccounts = [
     {
       badge: 'Professor',
-      badgeClass: 'bg-amber-100 text-amber-800',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
       user: users.find((u) => u.id === 'prof-101'),
     },
     {
       badge: 'Group Leader',
-      badgeClass: 'bg-indigo-100 text-indigo-800',
+      badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-200',
       user: users.find((u) => u.id === 'stu-01'),
     },
     {
       badge: 'Group Member',
-      badgeClass: 'bg-sky-100 text-sky-800',
+      badgeClass: 'bg-sky-100 text-sky-800 border-sky-200',
       user: users.find((u) => u.id === 'stu-02'),
     },
     {
       badge: 'Solo Student',
-      badgeClass: 'bg-slate-100 text-slate-700',
+      badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
       user: users.find((u) => u.id === 'stu-05'),
     },
   ].filter((item) => item.user);
 
   return (
-    <div className="flex-1 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md space-y-6 animate-view-enter">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
-            <Icon name="brand" className="w-6 h-6" />
+    <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-screen">
+      {/* Left Showcase Panel (Visible on Desktop) */}
+      <div className="hidden lg:flex lg:col-span-6 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white p-12 flex-col justify-between relative overflow-hidden">
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-violet-500/20 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
+            <Icon name="brand" className="w-5 h-5 text-white" />
           </div>
-          <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900">
-            Joineazy Academic Workspace
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Course-linked group collaboration &amp; verified submissions
-          </p>
+          <span className="font-display text-xl font-extrabold tracking-tight">
+            Joineazy
+          </span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-xl mb-6">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => {
-                setTab('LOGIN');
-                setFieldErrors({});
-                setAuthError('');
-              }}
-              className={`py-2 text-xs font-semibold rounded-lg transition ${
-                tab === 'LOGIN'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => {
-                setTab('REGISTER');
-                setFieldErrors({});
-                setAuthError('');
-              }}
-              className={`py-2 text-xs font-semibold rounded-lg transition ${
-                tab === 'REGISTER'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Create Account
-            </button>
+        <div className="relative z-10 space-y-6 max-w-lg">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 text-xs font-semibold">
+            <Icon name="sparkles" className="w-3.5 h-3.5 text-indigo-300" />
+            <span>Round 2 Academic Platform</span>
           </div>
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
-            {tab === 'REGISTER' && (
-              <>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Parashuram"
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none ${
-                      fieldErrors.name
-                        ? 'border-rose-400 bg-rose-50/40'
-                        : 'border-slate-300 focus:border-indigo-600'
-                    }`}
-                  />
-                  {fieldErrors.name && (
-                    <p className="mt-1 text-[11px] font-medium text-rose-600">
-                      {fieldErrors.name}
-                    </p>
-                  )}
-                </div>
+          <h2 className="font-display text-4xl font-extrabold leading-tight">
+            Streamlined courses, teams, and verified submissions.
+          </h2>
+          <p className="text-slate-300 text-sm leading-relaxed">
+            Built for university cohorts: organize project groups, track individual and
+            group deliverables, and enforce group leader acknowledgment with instant
+            faculty visibility.
+          </p>
 
-                <div className="grid grid-cols-2 gap-3">
+          {/* Mini Preview Card */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="px-2.5 py-0.5 rounded-md bg-indigo-500 text-white text-[11px] font-bold">
+                  CS-401
+                </span>
+                <span className="text-xs font-semibold text-white">
+                  Distributed Systems
+                </span>
+              </div>
+              <span className="text-xs font-bold text-emerald-400">
+                ✓ Leader Verified
+              </span>
+            </div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="w-4/5 h-full bg-gradient-to-r from-indigo-400 to-emerald-400 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>Team Quantum (3 Members Synced)</span>
+              <span>JWT RBAC Secured</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 text-xs text-slate-400 flex items-center justify-between">
+          <span>React • Tailwind • Node.js • PostgreSQL 16</span>
+          <span>Joineazy Assessment</span>
+        </div>
+      </div>
+
+      {/* Right Authentication Panel */}
+      <div className="lg:col-span-6 flex items-center justify-center px-4 py-10 sm:px-8 bg-slate-50">
+        <div className="w-full max-w-md space-y-6 animate-view-enter">
+          <div className="text-center lg:text-left">
+            <div className="lg:hidden w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center mx-auto shadow-md mb-4">
+              <Icon name="brand" className="w-6 h-6" />
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {tab === 'LOGIN' ? 'Welcome back' : 'Create your account'}
+            </h1>
+            <p className="mt-1.5 text-sm text-slate-500">
+              {tab === 'LOGIN'
+                ? 'Sign in to access your courses and project workspace.'
+                : 'Register as a Student or Professor with instant JWT session.'}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.06)]">
+            <div className="grid grid-cols-2 bg-slate-100/90 p-1 rounded-2xl mb-6">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setTab('LOGIN');
+                  setFieldErrors({});
+                  setAuthError('');
+                }}
+                className={`py-2.5 text-xs font-bold rounded-xl transition ${
+                  tab === 'LOGIN'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setTab('REGISTER');
+                  setFieldErrors({});
+                  setAuthError('');
+                }}
+                className={`py-2.5 text-xs font-bold rounded-xl transition ${
+                  tab === 'REGISTER'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {tab === 'REGISTER' && (
+                <>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Role
-                    </label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
-                    >
-                      <option value="STUDENT">Student</option>
-                      <option value="PROFESSOR">Professor</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Department
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Full Name
                     </label>
                     <input
                       type="text"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      placeholder="B.Tech CSE"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Parashuram"
+                      className={`w-full px-4 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.name
+                          ? 'border-rose-400 bg-rose-50/40 focus:ring-rose-500/20'
+                          : 'border-slate-300 focus:border-indigo-600 focus:ring-indigo-500/15'
+                      }`}
                     />
+                    {fieldErrors.name && (
+                      <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                        {fieldErrors.name}
+                      </p>
+                    )}
                   </div>
-                </div>
-              </>
-            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@joineazy.edu"
-                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none ${
-                  fieldErrors.email
-                    ? 'border-rose-400 bg-rose-50/40'
-                    : 'border-slate-300 focus:border-indigo-600'
-                }`}
-              />
-              {fieldErrors.email && (
-                <p className="mt-1 text-[11px] font-medium text-rose-600">
-                  {fieldErrors.email}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none ${
-                  fieldErrors.password
-                    ? 'border-rose-400 bg-rose-50/40'
-                    : 'border-slate-300 focus:border-indigo-600'
-                }`}
-              />
-              {fieldErrors.password && (
-                <p className="mt-1 text-[11px] font-medium text-rose-600">
-                  {fieldErrors.password}
-                </p>
-              )}
-            </div>
-
-            {authError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
-                <Icon name="alert" className="w-4 h-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 text-white text-sm font-semibold transition shadow-sm flex items-center justify-center gap-2"
-            >
-              {isSubmitting && <Icon name="loader" className="w-4 h-4 animate-spin" />}
-              <span>
-                {isSubmitting
-                  ? 'Authenticating JWT...'
-                  : tab === 'LOGIN'
-                  ? 'Sign In'
-                  : 'Create Account'}
-              </span>
-            </button>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-              1-Click Role Switcher (Test All Flows)
-            </div>
-            <div className="space-y-2">
-              {quickAccounts.map(({ badge, badgeClass, user }) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => triggerAuthWithLoader(() => onLogin(user))}
-                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 text-left transition"
-                >
-                  <div>
-                    <div className="text-xs font-semibold text-slate-900">
-                      {user.name}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Role
+                      </label>
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
+                      >
+                        <option value="STUDENT">Student</option>
+                        <option value="PROFESSOR">Professor</option>
+                      </select>
                     </div>
-                    <div className="text-[11px] text-slate-500">{user.email}</div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        placeholder="B.Tech CSE"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
+                      />
+                    </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}`}>
-                    {badge}
-                  </span>
-                </button>
-              ))}
+                </>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  University Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@joineazy.edu"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${
+                    fieldErrors.email
+                      ? 'border-rose-400 bg-rose-50/40 focus:ring-rose-500/20'
+                      : 'border-slate-300 focus:border-indigo-600 focus:ring-indigo-500/15'
+                  }`}
+                />
+                {fieldErrors.email && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={`w-full pl-4 pr-10 py-2.5 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${
+                      fieldErrors.password
+                        ? 'border-rose-400 bg-rose-50/40 focus:ring-rose-500/20'
+                        : 'border-slate-300 focus:border-indigo-600 focus:ring-indigo-500/15'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    aria-label="Toggle password visibility"
+                  >
+                    <Icon name={showPassword ? 'eyeOff' : 'eye'} className="w-4 h-4" />
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </div>
+
+              {authError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <Icon name="alert" className="w-4 h-4 shrink-0" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-70 text-white text-sm font-bold transition shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-[0.99]"
+              >
+                {isSubmitting && <Icon name="loader" className="w-4 h-4 animate-spin" />}
+                <span>
+                  {isSubmitting
+                    ? 'Verifying JWT & Redirecting...'
+                    : tab === 'LOGIN'
+                    ? 'Sign In to Workspace'
+                    : 'Create Account & Continue'}
+                </span>
+              </button>
+            </form>
+
+            {/* 1-Click Role Switcher */}
+            <div className="mt-6 pt-5 border-t border-slate-100">
+              <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">
+                Instant Demo Role Access
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {quickAccounts.map(({ badge, badgeClass, user }) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => triggerAuthWithLoader(() => onLogin(user))}
+                    className="flex items-center gap-2.5 p-2.5 rounded-2xl border border-slate-200/90 hover:border-indigo-400 hover:bg-indigo-50/40 text-left transition active:scale-[0.98]"
+                  >
+                    <AvatarBadge name={user.name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        {user.name}
+                      </div>
+                      <span
+                        className={`inline-block mt-0.5 px-1.5 py-0.2 rounded border text-[9px] font-extrabold ${badgeClass}`}
+                      >
+                        {badge}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1149,7 +1382,7 @@ function AuthScreen({ users, onLogin, onRegister }) {
 }
 
 // ----------------------------------------------------------------------------
-// 7. STUDENT WORKSPACE (Courses Grid, Group Leader Rule & Individual/Group)
+// 8. STUDENT WORKSPACE (Enrolled Courses, 3-Step Stepper & Group Leader Rule)
 // ----------------------------------------------------------------------------
 function StudentWorkspace({
   activeNav,
@@ -1355,7 +1588,7 @@ function StudentWorkspace({
   const startSubmissionConfirmation = (asg) => {
     if (asg.submissionType === 'GROUP') {
       if (!myGroup) {
-        showToast('Create or join a group first for group assignments.', 'error');
+        showToast('Create a group first to acknowledge group assignments.', 'error');
         setActiveNav('group');
         return;
       }
@@ -1415,81 +1648,80 @@ function StudentWorkspace({
     }));
 
     setRecentlyCompletedAsgId(pendingConfirmAsg.id);
-    setTimeout(() => setRecentlyCompletedAsgId(null), 1500);
+    setTimeout(() => setRecentlyCompletedAsgId(null), 1600);
 
     showToast(
       pendingConfirmAsg.submissionType === 'GROUP'
-        ? `Group submission acknowledged! Reflected across all ${myGroup.name} members.`
+        ? `Group submission acknowledged! Synced across all ${myGroup.name} members.`
         : `Individual submission acknowledged for "${pendingConfirmAsg.title}"`
     );
     setPendingConfirmAsg(null);
   };
 
+  // ==========================================================================
   // VIEW A: ENROLLED COURSES DASHBOARD
+  // ==========================================================================
   if (activeNav === 'courses') {
     const totalDone = enrichedAssignments.filter((a) => a.submission).length;
     const totalAll = enrichedAssignments.length;
     const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
 
     return (
-      <div className="space-y-6 animate-view-enter">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
+      <div className="space-y-7 animate-view-enter">
+        {/* Welcome Banner with Circular Ring */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-[0_8px_24px_-6px_rgba(15,23,42,0.05)] flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
                 {currentUser.department}
               </span>
-              <span className="text-slate-300">•</span>
               {myGroup ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
-                  {isGroupLeader && <Icon name="crown" className="w-3 h-3" />}
-                  {myGroup.name} ({isGroupLeader ? 'Leader' : 'Member'})
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveNav('group')}
+                  className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 transition"
+                >
+                  {isGroupLeader && <Icon name="crown" className="w-3 h-3 text-amber-500" />}
+                  <span>
+                    {myGroup.name} • {isGroupLeader ? 'Group Leader' : 'Member'}
+                  </span>
+                </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => setActiveNav('group')}
-                  className="text-xs font-semibold text-amber-700 hover:underline"
+                  className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition"
                 >
-                  No Group Assigned — Create Group →
+                  + Create Project Group
                 </button>
               )}
             </div>
-            <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+
+            <h2 className="font-display text-2xl font-extrabold text-slate-900">
               Welcome back, {currentUser.name}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Select any enrolled course below to view assignments and acknowledge submissions.
+            <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
+              Select an enrolled course below to view assignment briefs, upload deliverables to
+              OneDrive, and track acknowledgments.
             </p>
           </div>
 
-          <div className="w-full md:w-72">
-            <div className="flex justify-between text-xs font-semibold mb-1.5">
-              <span className="text-slate-600">Overall Course Progress</span>
-              <span className="text-indigo-600 tabular-nums">
-                {totalDone}/{totalAll} ({overallPct}%)
-              </span>
-            </div>
-            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-                style={{ width: `${overallPct}%` }}
-              />
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/90 border border-slate-200/70 shrink-0">
+            <CircularProgress pct={overallPct} size={62} strokeWidth={5.5} />
+            <div>
+              <div className="text-xs font-bold text-slate-900">Overall Completion</div>
+              <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                {totalDone} of {totalAll} tasks verified
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Enrolled Courses Responsive Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courseCards.map((course) => {
-            const accentMap = {
-              indigo: 'bg-indigo-600 text-white',
-              emerald: 'bg-emerald-600 text-white',
-              amber: 'bg-amber-500 text-white',
-            };
-            const barMap = {
-              indigo: 'bg-indigo-600',
-              emerald: 'bg-emerald-600',
-              amber: 'bg-amber-500',
-            };
+            const theme = COURSE_THEMES[course.accent] || COURSE_THEMES.indigo;
+            const pendingCount = course.total - course.done;
 
             return (
               <button
@@ -1500,57 +1732,78 @@ function StudentWorkspace({
                   setStatusFilter('ALL');
                   setActiveNav('assignments');
                 }}
-                className="group text-left bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md p-6 transition-all flex flex-col justify-between"
+                className="group text-left bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-400 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.04)] hover:shadow-[0_14px_30px_-8px_rgba(79,70,229,0.14)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold tracking-wide ${
-                        accentMap[course.accent] || 'bg-indigo-600 text-white'
-                      }`}
-                    >
-                      {course.code}
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-400">
-                      {course.semester}
-                    </span>
+                  {/* Course Gradient Banner */}
+                  <div className={`bg-gradient-to-r ${theme.banner} p-5 text-white`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border ${theme.pill}`}
+                      >
+                        {course.code}
+                      </span>
+                      <span className="text-[11px] font-semibold text-white/90">
+                        {course.semester}
+                      </span>
+                    </div>
+                    <h3 className="font-display text-lg font-extrabold mt-3.5 leading-snug">
+                      {course.title}
+                    </h3>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 mt-4 group-hover:text-indigo-700 transition">
-                    {course.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
-                    {course.description}
-                  </p>
+                  {/* Course Body */}
+                  <div className="p-5 space-y-4">
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                      {course.description}
+                    </p>
+
+                    <div className="flex items-center gap-2.5 pt-1">
+                      <AvatarBadge
+                        name={course.professor ? course.professor.name : 'Prof'}
+                        size="sm"
+                      />
+                      <div className="text-xs">
+                        <div className="font-bold text-slate-800">
+                          {course.professor ? course.professor.name : 'Faculty'}
+                        </div>
+                        <div className="text-[11px] text-slate-400">Course Instructor</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-100 space-y-3">
-                  <div className="text-xs text-slate-500">
-                    Instructor:{' '}
-                    <span className="font-semibold text-slate-700">
-                      {course.professor ? course.professor.name : 'Faculty'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-semibold mb-1.5">
-                      <span className="text-slate-600">
-                        {course.done} of {course.total} Acknowledged
+                {/* Course Progress Footer */}
+                <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-900">
+                        {course.done}/{course.total}
+                      </span>{' '}
+                      <span className="text-slate-500">Acknowledged</span>
+                    </div>
+                    {pendingCount > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80">
+                        {pendingCount} Pending
                       </span>
-                      <span className="text-slate-900 tabular-nums">{course.pct}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          barMap[course.accent] || 'bg-indigo-600'
-                        }`}
-                        style={{ width: `${course.pct}%` }}
-                      />
-                    </div>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                        All Done
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between text-xs font-semibold text-indigo-600 pt-1">
-                    <span>Open Course Assignments</span>
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        course.pct === 100 ? 'bg-emerald-500' : theme.bar
+                      }`}
+                      style={{ width: `${course.pct}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold text-indigo-600 pt-1">
+                    <span>Open Course Workspace</span>
                     <Icon
                       name="arrowRight"
                       className="w-4 h-4 group-hover:translate-x-1 transition-transform"
@@ -1565,22 +1818,29 @@ function StudentWorkspace({
     );
   }
 
+  // ==========================================================================
   // VIEW B: MY GROUP & LEADERSHIP MANAGEMENT
+  // ==========================================================================
   if (activeNav === 'group') {
     return (
       <div className="space-y-6 animate-view-enter">
         {!myGroup ? (
-          <div className="max-w-lg bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">Create Your Project Group</h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Creating a group makes you the <strong>Group Leader</strong>, authorizing you to
-              acknowledge group assignments for all members.
+          <div className="max-w-lg bg-white rounded-3xl border border-slate-200/90 p-7 sm:p-8 shadow-sm">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+              <Icon name="users" className="w-5 h-5" />
+            </div>
+            <h2 className="font-display text-xl font-extrabold text-slate-900">
+              Create Your Project Group
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
+              Creating a group assigns you as the <strong>Group Leader</strong>, granting you
+              permission to onboard teammates and acknowledge group assignments.
             </p>
 
             <form onSubmit={handleCreateGroup} className="mt-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Group Name
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Team / Group Name
                 </label>
                 <input
                   type="text"
@@ -1588,12 +1848,12 @@ function StudentWorkspace({
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   placeholder="e.g., Team Apex"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
                 />
               </div>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm transition active:scale-[0.98]"
               >
                 Create Group as Leader
               </button>
@@ -1601,11 +1861,12 @@ function StudentWorkspace({
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+            {/* Group Roster Card */}
+            <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-6 text-white flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg font-bold text-slate-900">{myGroup.name}</h2>
+                    <h2 className="font-display text-xl font-extrabold">{myGroup.name}</h2>
                     <button
                       type="button"
                       onClick={() => {
@@ -1613,14 +1874,15 @@ function StudentWorkspace({
                         setCopiedCode(true);
                         setTimeout(() => setCopiedCode(false), 1800);
                       }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs font-semibold transition"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-mono text-xs font-semibold transition"
                     >
                       <span>{myGroup.inviteCode}</span>
-                      <Icon name={copiedCode ? 'check' : 'copy'} className="w-3 h-3" />
+                      <Icon name={copiedCode ? 'check' : 'copy'} className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {roster.length} members • Group Leader acknowledges group submissions
+                  <p className="text-xs text-slate-300 mt-1">
+                    {roster.length} member{roster.length === 1 ? '' : 's'} • Group Leader
+                    acknowledgments sync to all members
                   </p>
                 </div>
               </div>
@@ -1628,33 +1890,37 @@ function StudentWorkspace({
               <div className="divide-y divide-slate-100">
                 {roster.map((m) => (
                   <div key={m.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {m.user.name}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            m.roleInGroup === 'LEADER'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {m.roleInGroup === 'LEADER' && (
-                            <Icon name="crown" className="w-3 h-3" />
-                          )}
-                          {m.roleInGroup}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        <span className="font-mono">{m.user.codeId}</span> • {m.user.email}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <AvatarBadge name={m.user.name} size="md" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-slate-900 truncate">
+                            {m.user.name}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                              m.roleInGroup === 'LEADER'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {m.roleInGroup === 'LEADER' && (
+                              <Icon name="crown" className="w-3 h-3 text-amber-600" />
+                            )}
+                            {m.roleInGroup}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5 truncate">
+                          <span className="font-mono">{m.user.codeId}</span> • {m.user.email}
+                        </div>
                       </div>
                     </div>
 
                     {isGroupLeader && m.userId !== currentUser.id && (
                       <button
                         onClick={() => handleRemoveMember(m)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        title="Remove member"
                       >
                         <Icon name="trash" className="w-4 h-4" />
                       </button>
@@ -1664,13 +1930,16 @@ function StudentWorkspace({
               </div>
             </div>
 
-            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+            {/* Add Teammate Panel */}
+            <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-5">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Add Group Member</h3>
+                <h3 className="font-display text-base font-extrabold text-slate-900">
+                  Team Onboarding
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   {isGroupLeader
-                    ? 'Add teammates via email or Student ID.'
-                    : 'Only the Group Leader can add or remove members.'}
+                    ? 'Add unassigned peers via email address or Student ID.'
+                    : 'Only the Group Leader can manage group membership.'}
                 </p>
               </div>
 
@@ -1688,40 +1957,43 @@ function StudentWorkspace({
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
                     />
                     {inviteError && (
-                      <p className="text-xs text-rose-600 font-medium">{inviteError}</p>
+                      <p className="text-xs text-rose-600 font-semibold">{inviteError}</p>
                     )}
                     <button
                       type="submit"
-                      className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition"
+                      className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition active:scale-[0.98]"
                     >
                       <Icon name="userPlus" className="w-4 h-4" />
-                      <span>Add to Group</span>
+                      <span>Add Teammate</span>
                     </button>
                   </form>
 
                   {availablePeers.length > 0 && (
                     <div className="pt-4 border-t border-slate-100">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-                        Unassigned Students
+                      <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2.5">
+                        Available Peers
                       </div>
                       <div className="space-y-2">
                         {availablePeers.map((peer) => (
                           <div
                             key={peer.id}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200"
+                            className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80"
                           >
-                            <div>
-                              <div className="text-xs font-semibold text-slate-900">
-                                {peer.name}
-                              </div>
-                              <div className="text-[11px] font-mono text-slate-500">
-                                {peer.codeId}
+                            <div className="flex items-center gap-2.5">
+                              <AvatarBadge name={peer.name} size="sm" />
+                              <div>
+                                <div className="text-xs font-bold text-slate-900">
+                                  {peer.name}
+                                </div>
+                                <div className="text-[10px] font-mono text-slate-500">
+                                  {peer.codeId}
+                                </div>
                               </div>
                             </div>
                             <button
                               type="button"
                               onClick={() => handleAddMember(null, peer)}
-                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 text-xs font-semibold transition"
+                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 text-xs font-bold transition shadow-2xs"
                             >
                               + Add
                             </button>
@@ -1732,10 +2004,10 @@ function StudentWorkspace({
                   )}
                 </>
               ) : (
-                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 leading-relaxed">
                   You are a <strong>Member</strong> of {myGroup.name}. Group acknowledgments
-                  by <strong>{groupLeaderUser ? groupLeaderUser.name : 'your Leader'}</strong>{' '}
-                  sync automatically to your dashboard.
+                  made by <strong>{groupLeaderUser ? groupLeaderUser.name : 'your Leader'}</strong>{' '}
+                  sync automatically to your course progress.
                 </div>
               )}
             </div>
@@ -1745,7 +2017,9 @@ function StudentWorkspace({
     );
   }
 
-  // VIEW C: COURSE ASSIGNMENTS & PROGRESS PAGE
+  // ==========================================================================
+  // VIEW C: COURSE ASSIGNMENTS PAGE (With 3-Step Visual Workflow Stepper)
+  // ==========================================================================
   const visibleAssignments = enrichedAssignments.filter((a) => {
     if (selectedCourseId && a.courseId !== selectedCourseId) return false;
     if (statusFilter === 'ACKNOWLEDGED') return Boolean(a.submission);
@@ -1762,8 +2036,16 @@ function StudentWorkspace({
       ? Math.round((completedCount / scopeAssignments.length) * 100)
       : 0;
 
+  const currentCourseObj = selectedCourseId
+    ? db.courses.find((c) => c.id === selectedCourseId)
+    : null;
+  const currentCourseTheme = currentCourseObj
+    ? COURSE_THEMES[currentCourseObj.accent] || COURSE_THEMES.indigo
+    : COURSE_THEMES.indigo;
+
   return (
     <div className="space-y-6 animate-view-enter">
+      {/* Top Breadcrumb & Course Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -1771,19 +2053,19 @@ function StudentWorkspace({
             setSelectedCourseId(null);
             setActiveNav('courses');
           }}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 transition"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 text-xs font-bold text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-2xs"
         >
-          <Icon name="arrowLeft" className="w-4 h-4" />
-          <span>Back to Enrolled Courses</span>
+          <Icon name="arrowLeft" className="w-3.5 h-3.5" />
+          <span>Back to Courses</span>
         </button>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setSelectedCourseId(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
               !selectedCourseId
-                ? 'bg-indigo-600 text-white border-indigo-600'
+                ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
             }`}
           >
@@ -1794,7 +2076,7 @@ function StudentWorkspace({
               key={c.id}
               type="button"
               onClick={() => setSelectedCourseId(c.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition ${
                 selectedCourseId === c.id
                   ? 'bg-indigo-600 text-white border-indigo-600'
                   : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
@@ -1806,33 +2088,50 @@ function StudentWorkspace({
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="text-xs font-semibold text-slate-500">
-            {myGroup
-              ? `Group: ${myGroup.name} (${isGroupLeader ? 'Group Leader' : 'Group Member'})`
-              : 'Individual Workspace'}
+      {/* Course / Scope Hero Progress Card */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {currentCourseObj && (
+              <span
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border ${currentCourseTheme.softBg}`}
+              >
+                {currentCourseObj.code}
+              </span>
+            )}
+            <span className="text-xs font-semibold text-slate-500">
+              {myGroup
+                ? `${myGroup.name} (${isGroupLeader ? 'Group Leader' : 'Group Member'})`
+                : 'Individual Workspace'}
+            </span>
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 mt-0.5">
-            {completedCount} of {scopeAssignments.length} Assignments Acknowledged
+          <h2 className="font-display text-xl font-extrabold text-slate-900">
+            {currentCourseObj ? currentCourseObj.title : 'All Enrolled Course Assignments'}
           </h2>
+          <p className="text-xs text-slate-500">
+            {completedCount} of {scopeAssignments.length} assignments acknowledged
+          </p>
         </div>
 
-        <div className="w-full md:w-72">
-          <div className="flex justify-between text-xs font-semibold mb-1.5">
-            <span className="text-slate-600">Completion Progress</span>
-            <span className="text-indigo-600 tabular-nums">{progressPct}%</span>
-          </div>
-          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
+        <div className="flex items-center gap-4 shrink-0">
+          <CircularProgress pct={progressPct} size={60} strokeWidth={5.5} />
+          <div className="w-40 hidden sm:block">
+            <div className="flex justify-between text-[11px] font-bold mb-1.5">
+              <span className="text-slate-600">Progress</span>
+              <span className="text-indigo-600">{progressPct}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="inline-flex bg-white p-1 rounded-xl border border-slate-200">
+      {/* Status Filter Pills */}
+      <div className="inline-flex bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
         {[
           { id: 'ALL', label: `All (${scopeAssignments.length})` },
           { id: 'PENDING', label: `Pending (${scopeAssignments.length - completedCount})` },
@@ -1841,9 +2140,9 @@ function StudentWorkspace({
           <button
             key={tab.id}
             onClick={() => setStatusFilter(tab.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${
               statusFilter === tab.id
-                ? 'bg-slate-900 text-white'
+                ? 'bg-slate-900 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -1852,80 +2151,127 @@ function StudentWorkspace({
         ))}
       </div>
 
-      <div className="space-y-4">
+      {/* Assignment Cards */}
+      <div className="space-y-5">
         {visibleAssignments.map((asg) => {
           const acknowledged = Boolean(asg.submission);
           const isGroupTask = asg.submissionType === 'GROUP';
-          const late = !acknowledged && isOverdue(asg.deadline);
+          const deadlineInfo = getDeadlineBadge(asg.deadline, acknowledged);
           const justCompleted = recentlyCompletedAsgId === asg.id;
 
           return (
             <div
               key={asg.id}
-              className={`bg-white rounded-2xl border p-6 shadow-sm transition-all ${
-                acknowledged ? 'border-emerald-200/90' : 'border-slate-200'
+              className={`bg-white rounded-3xl border p-6 sm:p-7 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.04)] transition-all ${
+                acknowledged
+                  ? 'border-emerald-200/90 bg-gradient-to-b from-white to-emerald-50/20'
+                  : 'border-slate-200/90'
               } ${justCompleted ? 'animate-card-complete' : ''}`}
             >
+              {/* Top Tag Bar */}
               <div className="flex items-center gap-2 flex-wrap">
                 {asg.course && (
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700">
+                  <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-slate-100 text-slate-800">
                     {asg.course.code}
                   </span>
                 )}
 
                 <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border ${
                     isGroupTask
-                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                      : 'bg-sky-50 text-sky-700 border border-sky-200'
+                      ? 'bg-violet-50 text-violet-700 border-violet-200/80'
+                      : 'bg-sky-50 text-sky-700 border-sky-200/80'
                   }`}
                 >
-                  <Icon name={isGroupTask ? 'users' : 'checkCircle'} className="w-3 h-3" />
+                  <Icon name={isGroupTask ? 'users' : 'shield'} className="w-3 h-3" />
                   {isGroupTask ? 'Group Assignment' : 'Individual Assignment'}
                 </span>
 
                 {acknowledged ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-check-pop">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-check-pop">
                     <Icon name="checkCircle" className="w-3.5 h-3.5" />
                     Acknowledged
                   </span>
-                ) : late ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                    <Icon name="alert" className="w-3.5 h-3.5" />
-                    Past Deadline
-                  </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                    <Icon name="clock" className="w-3.5 h-3.5" />
-                    Pending Submission
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border ${
+                      deadlineInfo.tone === 'rose'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : deadlineInfo.tone === 'amber'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <Icon name="clock" className="w-3 h-3" />
+                    {deadlineInfo.label}
                   </span>
                 )}
 
-                <span className="text-xs font-medium text-slate-500 ml-auto">
-                  Deadline: {formatDateTime(asg.deadline)}
+                <span className="text-xs font-medium text-slate-400 ml-auto">
+                  Due {formatDateTime(asg.deadline)}
                 </span>
               </div>
 
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-3">{asg.title}</h3>
-              <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{asg.description}</p>
+              <h3 className="font-display text-lg sm:text-xl font-extrabold text-slate-900 mt-3.5">
+                {asg.title}
+              </h3>
+              <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
+                {asg.description}
+              </p>
 
+              {/* Visual 3-Step Submission Stepper */}
+              <div className="mt-5 p-3.5 rounded-2xl bg-slate-50/90 border border-slate-200/70 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[11px] shrink-0">
+                    1
+                  </span>
+                  <span className="font-semibold text-slate-700">Open OneDrive Folder</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[11px] shrink-0">
+                    2
+                  </span>
+                  <span className="font-semibold text-slate-700">Upload Deliverables</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] shrink-0 ${
+                      acknowledged
+                        ? 'bg-emerald-500 text-white animate-check-pop'
+                        : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {acknowledged ? '✓' : '3'}
+                  </span>
+                  <span
+                    className={`font-semibold ${
+                      acknowledged ? 'text-emerald-700' : 'text-slate-700'
+                    }`}
+                  >
+                    {isGroupTask ? 'Leader Acknowledges' : 'Student Acknowledges'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Acknowledged Audit Banner */}
               {acknowledged && (
-                <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2.5">
-                  <Icon
-                    name="checkCircle"
-                    className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 animate-check-pop"
-                  />
+                <div className="mt-4 px-4 py-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 animate-check-pop">
+                    <Icon name="check" className="w-4 h-4" />
+                  </div>
                   <div>
-                    <div className="font-semibold">
+                    <div className="font-bold">
                       {isGroupTask
                         ? `Acknowledged by Group Leader (${
                             asg.acknowledgedBy?.name || 'Leader'
                           }) for ${myGroup ? myGroup.name : 'Group'}`
                         : `Acknowledged by ${currentUser.name}`}{' '}
-                      • {formatDateTime(asg.submission.acknowledgedAt)}
+                      <span className="font-normal text-emerald-800">
+                        • {formatDateTime(asg.submission.acknowledgedAt)}
+                      </span>
                     </div>
                     {asg.submission.note && (
-                      <div className="text-emerald-800/80 mt-0.5">
+                      <div className="text-emerald-800 mt-0.5">
                         Note: {asg.submission.note}
                       </div>
                     )}
@@ -1933,12 +2279,13 @@ function StudentWorkspace({
                 </div>
               )}
 
+              {/* Bottom Action Bar */}
               <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <a
                   href={asg.oneDriveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 transition"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-800 transition"
                 >
                   <Icon name="externalLink" className="w-3.5 h-3.5 text-indigo-600" />
                   <span>Open OneDrive Folder</span>
@@ -1947,20 +2294,21 @@ function StudentWorkspace({
                 {!acknowledged && (
                   <>
                     {isGroupTask && myGroup && !isGroupLeader ? (
-                      <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                        <Icon name="lock" className="w-3.5 h-3.5" />
+                      <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/90">
+                        <Icon name="lock" className="w-3.5 h-3.5 text-amber-600" />
                         <span>
-                          Awaiting Group Leader (
-                          {groupLeaderUser ? groupLeaderUser.name : 'Leader'})
+                          Only Group Leader (
+                          {groupLeaderUser ? groupLeaderUser.name : 'Leader'}) Can
+                          Acknowledge
                         </span>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => startSubmissionConfirmation(asg)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white transition shadow-sm shadow-indigo-500/20 active:scale-[0.98]"
                       >
-                        <Icon name="checkCircle" className="w-3.5 h-3.5" />
+                        <Icon name="checkCircle" className="w-4 h-4" />
                         <span>
                           {isGroupTask
                             ? 'Acknowledge Group Submission'
@@ -1976,34 +2324,36 @@ function StudentWorkspace({
         })}
       </div>
 
-      {/* Verification Modal */}
+      {/* Submission Verification Modal */}
       {pendingConfirmAsg && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl animate-view-enter">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 sm:p-7 shadow-2xl animate-view-enter">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600">
                   {pendingConfirmAsg.submissionType === 'GROUP'
                     ? 'Group Leader Acknowledgment'
                     : 'Individual Verification'}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-0.5">Confirm Submission</h3>
+                <h3 className="font-display text-xl font-extrabold text-slate-900 mt-0.5">
+                  Confirm Submission
+                </h3>
               </div>
               <button
                 onClick={() => setPendingConfirmAsg(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
               >
                 <Icon name="x" className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={confirmSubmission} className="mt-4 space-y-4">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                <div className="font-semibold text-slate-900">{pendingConfirmAsg.title}</div>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
+                <div className="font-bold text-slate-900">{pendingConfirmAsg.title}</div>
                 <div className="text-slate-500">
                   {pendingConfirmAsg.submissionType === 'GROUP' ? (
                     <>
-                      Reflects automatically across all members of{' '}
+                      Reflects immediately across all members of{' '}
                       <strong className="text-slate-800">{myGroup?.name}</strong>
                     </>
                   ) : (
@@ -2016,19 +2366,19 @@ function StudentWorkspace({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Submission Note (Optional)
                 </label>
                 <input
                   type="text"
                   value={submissionNote}
                   onChange={(e) => setSubmissionNote(e.target.value)}
-                  placeholder="e.g., Uploaded final report & code archive"
+                  placeholder="e.g., Uploaded final report & SQL scripts"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer">
+              <label className="flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-300 cursor-pointer transition">
                 <input
                   type="checkbox"
                   required
@@ -2037,8 +2387,8 @@ function StudentWorkspace({
                   className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-xs text-slate-600 leading-relaxed">
-                  I confirm our files have been uploaded to the shared OneDrive link and officially
-                  acknowledge submission.
+                  I confirm our deliverables have been uploaded to the shared OneDrive
+                  folder and officially acknowledge submission.
                 </span>
               </label>
 
@@ -2046,14 +2396,14 @@ function StudentWorkspace({
                 <button
                   type="button"
                   onClick={() => setPendingConfirmAsg(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!verifiedUpload}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white shadow-sm transition"
                 >
                   Confirm &amp; Acknowledge
                 </button>
@@ -2067,7 +2417,7 @@ function StudentWorkspace({
 }
 
 // ----------------------------------------------------------------------------
-// 8. PROFESSOR WORKSPACE (Courses Taught, Analytics, CRUD & Status Filter)
+// 9. PROFESSOR WORKSPACE (Courses Taught, Analytics, CRUD & Status Filter)
 // ----------------------------------------------------------------------------
 function ProfessorWorkspace({
   activeNav,
@@ -2228,12 +2578,15 @@ function ProfessorWorkspace({
 
   const renderModal = () => (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-xl my-8 animate-view-enter">
+      <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full p-6 sm:p-7 shadow-2xl my-8 animate-view-enter">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <h3 className="text-lg font-bold text-slate-900">
+          <h3 className="font-display text-xl font-extrabold text-slate-900">
             {editingAsg ? 'Edit Assignment' : 'Create Course Assignment'}
           </h3>
-          <button onClick={() => setFormOpen(false)} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={() => setFormOpen(false)}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          >
             <Icon name="x" className="w-5 h-5" />
           </button>
         </div>
@@ -2241,11 +2594,11 @@ function ProfessorWorkspace({
         <form onSubmit={handleSaveAssignment} className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Course</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Course</label>
               <select
                 value={courseIdInput}
                 onChange={(e) => setCourseIdInput(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
               >
                 {coursesTaught.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -2256,13 +2609,13 @@ function ProfessorWorkspace({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Submission Type
               </label>
               <select
                 value={submissionType}
                 onChange={(e) => setSubmissionType(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-indigo-600"
               >
                 <option value="GROUP">Group (Leader Acknowledges)</option>
                 <option value="INDIVIDUAL">Individual Student</option>
@@ -2271,7 +2624,7 @@ function ProfessorWorkspace({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Assignment Title
             </label>
             <input
@@ -2285,7 +2638,7 @@ function ProfessorWorkspace({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Description &amp; Instructions
             </label>
             <textarea
@@ -2300,7 +2653,7 @@ function ProfessorWorkspace({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Deadline</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Deadline</label>
               <input
                 type="datetime-local"
                 required
@@ -2310,7 +2663,7 @@ function ProfessorWorkspace({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 OneDrive Folder URL
               </label>
               <input
@@ -2327,13 +2680,13 @@ function ProfessorWorkspace({
             <button
               type="button"
               onClick={() => setFormOpen(false)}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
             >
               {editingAsg ? 'Save Changes' : 'Publish Assignment'}
             </button>
@@ -2343,97 +2696,131 @@ function ProfessorWorkspace({
     </div>
   );
 
+  // ==========================================================================
   // VIEW 1: PROFESSOR COURSES DASHBOARD
+  // ==========================================================================
   if (activeNav === 'courses') {
     const totalExpected = assignmentStats.reduce((s, a) => s + a.total, 0);
     const totalAck = assignmentStats.reduce((s, a) => s + a.acknowledgedCount, 0);
     const overallPct = totalExpected > 0 ? Math.round((totalAck / totalExpected) * 100) : 0;
 
     return (
-      <div className="space-y-6 animate-view-enter">
+      <div className="space-y-7 animate-view-enter">
+        {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Courses Taught" value={coursesTaught.length} sub="Fall 2026 Semester" />
+          <MetricCard
+            label="Courses Taught"
+            value={coursesTaught.length}
+            sub="Fall 2026 Semester"
+            icon="courses"
+            accent="bg-indigo-50 text-indigo-600"
+          />
           <MetricCard
             label="Enrolled Students"
             value={students.length}
             sub={`${db.groups.length} active project groups`}
+            icon="users"
+            accent="bg-sky-50 text-sky-600"
           />
           <MetricCard
             label="Acknowledged Rate"
             value={`${overallPct}%`}
             sub={`${totalAck} of ${totalExpected} submissions`}
+            icon="checkCircle"
+            accent="bg-emerald-50 text-emerald-600"
           />
           <MetricCard
             label="Active Assignments"
             value={db.assignments.length}
             sub="Group & Individual tasks"
+            icon="assignments"
+            accent="bg-amber-50 text-amber-600"
           />
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Courses Being Taught</h2>
-            <p className="text-xs text-slate-500">
-              Click any course card to manage assignments and inspect submissions
+            <h2 className="font-display text-xl font-extrabold text-slate-900">
+              Courses Being Taught
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Click any course card to manage assignments and monitor submission statuses
             </p>
           </div>
           <button
             onClick={() => openCreateForm('crs-401')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm self-start sm:self-auto"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 self-start sm:self-auto active:scale-[0.98]"
           >
             <Icon name="plus" className="w-4 h-4" />
             <span>New Assignment</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {professorCourseCards.map((course) => (
-            <div
-              key={course.id}
-              onClick={() => {
-                setSelectedCourseId(course.id);
-                setActiveNav('assignments');
-              }}
-              className="cursor-pointer group bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md p-6 transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700">
-                    {course.code}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500">
-                    {course.enrolledCount} Students
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-slate-900 mt-4 group-hover:text-indigo-700 transition">
-                  {course.title}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{course.description}</p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {professorCourseCards.map((course) => {
+            const theme = COURSE_THEMES[course.accent] || COURSE_THEMES.indigo;
+            return (
+              <div
+                key={course.id}
+                onClick={() => {
+                  setSelectedCourseId(course.id);
+                  setActiveNav('assignments');
+                }}
+                className="cursor-pointer group bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-400 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.04)] hover:shadow-[0_14px_30px_-8px_rgba(79,70,229,0.14)] hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col justify-between"
+              >
+                <div>
+                  <div className={`bg-gradient-to-r ${theme.banner} p-5 text-white`}>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border ${theme.pill}`}
+                      >
+                        {course.code}
+                      </span>
+                      <span className="text-xs font-bold bg-black/20 px-2.5 py-0.5 rounded-full">
+                        {course.enrolledCount} Students
+                      </span>
+                    </div>
+                    <h3 className="font-display text-lg font-extrabold mt-3.5 leading-snug">
+                      {course.title}
+                    </h3>
+                  </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 space-y-3">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-600">{course.assignmentCount} Assignment(s)</span>
-                  <span className="text-emerald-700 tabular-nums">
-                    {course.totalAck}/{course.totalExpected} ({course.pct}%)
-                  </span>
+                  <div className="p-5">
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                      {course.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                    style={{ width: `${course.pct}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-xs font-semibold text-indigo-600 pt-1">
-                  <span>Manage Course &amp; Submissions</span>
-                  <Icon
-                    name="arrowRight"
-                    className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                  />
+
+                <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">
+                        {course.assignmentCount} Assignment(s)
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {course.totalAck} of {course.totalExpected} Acknowledged
+                      </div>
+                    </div>
+                    <CircularProgress
+                      pct={course.pct}
+                      size={48}
+                      strokeWidth={4.5}
+                      color={theme.ring}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold text-indigo-600 pt-1">
+                    <span>Manage Course &amp; Submissions</span>
+                    <Icon
+                      name="arrowRight"
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {formOpen && renderModal()}
@@ -2441,7 +2828,9 @@ function ProfessorWorkspace({
     );
   }
 
+  // ==========================================================================
   // VIEW 2: SUBMISSIONS TRACKER WITH STATUS FILTERING
+  // ==========================================================================
   if (activeNav === 'tracking') {
     const trackingRows = [];
     db.assignments
@@ -2498,9 +2887,9 @@ function ProfessorWorkspace({
       });
 
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-view-enter">
-        <div className="p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="inline-flex bg-slate-100 p-1 rounded-xl self-start">
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden animate-view-enter">
+        <div className="p-5 sm:p-6 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="inline-flex bg-slate-100 p-1.5 rounded-2xl self-start">
             {[
               { id: 'ALL', label: 'All Statuses' },
               { id: 'ACKNOWLEDGED', label: 'Acknowledged' },
@@ -2509,9 +2898,9 @@ function ProfessorWorkspace({
               <button
                 key={pill.id}
                 onClick={() => setStatusFilter(pill.id)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
                   statusFilter === pill.id
-                    ? 'bg-white text-slate-900 shadow-sm'
+                    ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -2524,7 +2913,7 @@ function ProfessorWorkspace({
             <select
               value={filterAssignmentId}
               onChange={(e) => setFilterAssignmentId(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium bg-white focus:outline-none focus:border-indigo-600"
+              className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:outline-none focus:border-indigo-600"
             >
               <option value="ALL">All Assignments</option>
               {db.assignments.map((a) => (
@@ -2553,7 +2942,7 @@ function ProfessorWorkspace({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                 <th className="py-3.5 px-5">Student</th>
                 <th className="py-3.5 px-5">Assignment &amp; Course</th>
                 <th className="py-3.5 px-5">Type / Group</th>
@@ -2561,43 +2950,50 @@ function ProfessorWorkspace({
                 <th className="py-3.5 px-5">Acknowledged By</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-xs">
+            <tbody className="divide-y divide-slate-100 text-xs">
               {trackingRows.map((row) => (
-                <tr key={row.key} className="hover:bg-slate-50/70">
+                <tr key={row.key} className="hover:bg-slate-50/70 transition">
                   <td className="py-3.5 px-5">
-                    <div className="font-semibold text-slate-900">{row.student.name}</div>
-                    <div className="font-mono text-[11px] text-slate-500">
-                      {row.student.codeId}
+                    <div className="flex items-center gap-2.5">
+                      <AvatarBadge name={row.student.name} size="sm" />
+                      <div>
+                        <div className="font-bold text-slate-900">{row.student.name}</div>
+                        <div className="font-mono text-[10px] text-slate-500">
+                          {row.student.codeId}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="py-3.5 px-5">
-                    <div className="font-semibold text-slate-800">{row.assignment.title}</div>
-                    <div className="text-[11px] text-slate-500">{row.course?.code}</div>
+                    <div className="font-bold text-slate-800">{row.assignment.title}</div>
+                    <div className="font-mono text-[11px] text-slate-500">
+                      {row.course?.code}
+                    </div>
                   </td>
                   <td className="py-3.5 px-5">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
                         row.assignment.submissionType === 'GROUP'
-                          ? 'bg-purple-50 text-purple-700'
-                          : 'bg-sky-50 text-sky-700'
+                          ? 'bg-violet-50 text-violet-700 border border-violet-200/80'
+                          : 'bg-sky-50 text-sky-700 border border-sky-200/80'
                       }`}
                     >
                       {row.assignment.submissionType}
                     </span>
                     {row.group && (
-                      <span className="block text-[11px] text-slate-600 mt-1">
+                      <span className="block text-[11px] font-medium text-slate-600 mt-1">
                         {row.group.name}
                       </span>
                     )}
                   </td>
                   <td className="py-3.5 px-5">
                     {row.status === 'ACKNOWLEDGED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <Icon name="checkCircle" className="w-3 h-3" />
                         Acknowledged
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200">
                         <Icon name="clock" className="w-3 h-3" />
                         Pending
                       </span>
@@ -2606,7 +3002,7 @@ function ProfessorWorkspace({
                   <td className="py-3.5 px-5 text-slate-600">
                     {row.submission ? (
                       <div>
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-bold text-slate-900">
                           {row.ackUser?.name || 'Student'}
                         </span>
                         <span className="block text-[11px] text-slate-400">
@@ -2626,32 +3022,44 @@ function ProfessorWorkspace({
     );
   }
 
+  // ==========================================================================
   // VIEW 3: ANALYTICS
+  // ==========================================================================
   if (activeNav === 'analytics') {
     return (
       <div className="space-y-6 animate-view-enter">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900">
+        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-sm">
+          <h3 className="font-display text-lg font-extrabold text-slate-900">
             Submission Completion Across All Assignments
           </h3>
           <p className="text-xs text-slate-500 mt-0.5 mb-6">
-            Tracks both Group Leader acknowledgments and Individual submissions
+            Tracks both Group Leader acknowledgments and Individual submissions in real time
           </p>
 
           <div className="space-y-5">
             {assignmentStats.map((a) => (
-              <div key={a.id}>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span className="text-slate-800 truncate pr-4">
-                    [{a.course?.code}] {a.title} ({a.submissionType})
+              <div
+                key={a.id}
+                className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/70"
+              >
+                <div className="flex justify-between text-xs font-bold mb-2">
+                  <span className="text-slate-900 truncate pr-4">
+                    <span className="font-mono text-indigo-600 mr-1.5">
+                      [{a.course?.code}]
+                    </span>
+                    {a.title} ({a.submissionType})
                   </span>
                   <span className="text-indigo-600 tabular-nums shrink-0">
                     {a.acknowledgedCount} / {a.total} {a.unitLabel} ({a.pct}%)
                   </span>
                 </div>
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-3 bg-slate-200/80 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      a.pct === 100
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-r from-indigo-600 to-violet-600'
+                    }`}
                     style={{ width: `${a.pct}%` }}
                   />
                 </div>
@@ -2663,13 +3071,15 @@ function ProfessorWorkspace({
     );
   }
 
+  // ==========================================================================
   // VIEW 4: PROFESSOR ASSIGNMENTS CRUD
+  // ==========================================================================
   const filteredStats = selectedCourseId
     ? assignmentStats.filter((a) => a.courseId === selectedCourseId)
     : assignmentStats;
 
   return (
-    <div className="space-y-5 animate-view-enter">
+    <div className="space-y-6 animate-view-enter">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -2677,40 +3087,40 @@ function ProfessorWorkspace({
             setSelectedCourseId(null);
             setActiveNav('courses');
           }}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-indigo-600"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 text-xs font-bold text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-2xs"
         >
-          <Icon name="arrowLeft" className="w-4 h-4" />
+          <Icon name="arrowLeft" className="w-3.5 h-3.5" />
           <span>Back to Courses</span>
         </button>
 
         <button
           onClick={() => openCreateForm(selectedCourseId || 'crs-401')}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm"
         >
           <Icon name="plus" className="w-4 h-4" />
           <span>New Assignment</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredStats.map((asg) => (
           <div
             key={asg.id}
-            className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between"
+            className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm flex flex-col justify-between"
           >
             <div>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   {asg.course && (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[11px] font-mono font-bold">
                       {asg.course.code}
                     </span>
                   )}
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                       asg.submissionType === 'GROUP'
-                        ? 'bg-purple-50 text-purple-700'
-                        : 'bg-sky-50 text-sky-700'
+                        ? 'bg-violet-50 text-violet-700 border border-violet-200/80'
+                        : 'bg-sky-50 text-sky-700 border border-sky-200/80'
                     }`}
                   >
                     {asg.submissionType}
@@ -2721,13 +3131,13 @@ function ProfessorWorkspace({
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => openEditForm(asg)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
                   >
                     <Icon name="edit" className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setConfirmDeleteId(asg.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                   >
                     <Icon name="trash" className="w-4 h-4" />
                   </button>
@@ -2735,18 +3145,18 @@ function ProfessorWorkspace({
               </div>
 
               {confirmDeleteId === asg.id && (
-                <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
-                  <span className="text-rose-800 font-medium">Delete assignment?</span>
+                <div className="mt-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
+                  <span className="text-rose-800 font-bold">Delete assignment?</span>
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="px-2.5 py-1 rounded bg-white border border-slate-200 font-semibold"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-bold"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={() => handleDeleteAssignment(asg.id)}
-                      className="px-2.5 py-1 rounded bg-rose-600 text-white font-semibold"
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold"
                     >
                       Delete
                     </button>
@@ -2754,7 +3164,9 @@ function ProfessorWorkspace({
                 </div>
               )}
 
-              <h3 className="text-base font-bold text-slate-900 mt-3">{asg.title}</h3>
+              <h3 className="font-display text-lg font-extrabold text-slate-900 mt-3.5">
+                {asg.title}
+              </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
                 {asg.description}
               </p>
@@ -2762,15 +3174,15 @@ function ProfessorWorkspace({
 
             <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
               <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
+                <div className="flex justify-between text-xs font-bold mb-1.5">
                   <span className="text-slate-500">Acknowledged ({asg.unitLabel})</span>
                   <span className="text-slate-900 tabular-nums">
                     {asg.acknowledgedCount} / {asg.total} ({asg.pct}%)
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 rounded-full"
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                     style={{ width: `${asg.pct}%` }}
                   />
                 </div>
@@ -2781,7 +3193,7 @@ function ProfessorWorkspace({
                   href={asg.oneDriveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700"
                 >
                   <Icon name="externalLink" className="w-3.5 h-3.5" />
                   <span>OneDrive Folder</span>
@@ -2791,7 +3203,7 @@ function ProfessorWorkspace({
                     setFilterAssignmentId(asg.id);
                     setActiveNav('tracking');
                   }}
-                  className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                  className="text-xs font-bold text-slate-700 hover:text-indigo-600"
                 >
                   Inspect Submissions →
                 </button>
@@ -2806,12 +3218,21 @@ function ProfessorWorkspace({
   );
 }
 
-function MetricCard({ label, value, sub }) {
+function MetricCard({ label, value, sub, icon, accent }) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-      <div className="text-xs font-medium text-slate-500">{label}</div>
-      <div className="text-2xl font-extrabold text-slate-900 mt-1 tabular-nums">{value}</div>
-      <div className="text-[11px] text-slate-400 mt-1">{sub}</div>
+    <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.04)] flex items-start justify-between gap-3">
+      <div>
+        <div className="text-xs font-bold text-slate-500">{label}</div>
+        <div className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1 tabular-nums">
+          {value}
+        </div>
+        <div className="text-[11px] text-slate-400 mt-1">{sub}</div>
+      </div>
+      {icon && (
+        <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${accent}`}>
+          <Icon name={icon} className="w-4 h-4" />
+        </div>
+      )}
     </div>
   );
 }
